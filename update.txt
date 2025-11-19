@@ -1,0 +1,12 @@
+Status: On-going
+1.  Interface & Design
+    -   Sketch the interface for property/land management (which function you need to create in order to get the certain interface)
+2.  Database Checklist
+    -   Identify problems and issues
+    -   Create ER diagram (prioritized)
+    -   Render ERD and documentation
+    -   Prepare presentation slides
+    -   Render/implement the database
+    -   Write report
+
+Comment: Try to narrow the scope of the problems then create 1st draft of the ER diagram. 

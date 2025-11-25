@@ -9,4 +9,11 @@ Status: On-going
     -   Render/implement the database
     -   Write report
 
-Comment: Try to narrow the scope of the problems then create 1st draft of the ER diagram. 
+Current Workflow
+	- revise the created tables and information
+	- functions 
+	- continue working on the UI part (key features and functions)
+
+Remark: be extra careful on security part. 
+
+**** SECURITY ****

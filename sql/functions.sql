@@ -14,7 +14,7 @@ BEGIN
         RAISE EXCEPTION 'Name, Email, and Phone are required fields.';
     END IF;
 
-    INSERT INTO "user" (name, date_of_birth, phone_number, email, address)
+    INSERT INTO user_main (name, date_of_birth, phone_number, email, address)
     VALUES (p_name, p_dob, p_phone, p_email, p_address)
     RETURNING user_id INTO new_user_id;
 
@@ -38,6 +38,7 @@ BEGIN
     RETURN found_user_id;
 END;
 $$ LANGUAGE plpgsql;
+
 
 -- add land
 CREATE OR REPLACE FUNCTION add_new_land(
@@ -157,6 +158,7 @@ BEGIN
     RETURN new_harvest_id;
 END;
 $$ LANGUAGE plpgsql;
+
 -- yearly revenue
 CREATE OR REPLACE FUNCTION get_user_revenue_by_year(
     p_user_id INTEGER,
@@ -175,7 +177,8 @@ BEGIN
     RETURN COALESCE(total_revenue, 0);
 END;
 $$ LANGUAGE plpgsql;
--- view land
+
+-- view land as whole
 CREATE OR REPLACE VIEW view_land_details AS
 SELECT
     l.Land_id,
@@ -194,9 +197,62 @@ JOIN user_main u_owner ON l.User_id = u_owner.User_id
 LEFT JOIN Supervisor sup ON l.Land_id = sup.Land_id
 LEFT JOIN user_main u_supervisor ON sup.User_id = u_supervisor.User_id;
 
--- view planting
 
--- profit calculation
+-- view land page
+CREATE OR REPLACE FUNCTION user_land_sum(p_user_id INTEGER)
+RETURNS TABLE (
+    land_name VARCHAR,
+    soil_name VARCHAR,
+    area_rai NUMERIC
+)
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        l.land_name,
+        s.soil_name,
+        l.area_size AS area_rai
+    FROM Land l
+    JOIN Soil s ON l.Soil_id = s.Soil_id
+    WHERE l.User_id = p_user_id;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- view planting based on land page
+-- SELECT * FROM crop; 
+CREATE OR REPLACE FUNCTION land_planting_page(p_land_id INTEGER)
+RETURNS TABLE (
+    land_name VARCHAR,
+    area_rai NUMERIC,
+    soil_name VARCHAR,
+    crop_name VARCHAR,
+    variety VARCHAR,
+    planting_date DATE,
+    active_crop_count BIGINT
+)
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        l.land_name,
+        l.area_size AS area_rai,
+        s.soil_name,
+        c.crop_name,
+        c.variety,
+        c.planting_date,
+        COUNT(c.crop_id) OVER () AS active_crop_count   -- NEW
+    FROM Land l
+    JOIN Soil s ON l.Soil_id = s.Soil_id
+    LEFT JOIN Crop c
+        ON c.Land_id = l.Land_id
+        AND c.status IN ('Planted', 'Growing')  
+    WHERE l.Land_id = p_land_id;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- profit calculation as a whole
 CREATE OR REPLACE VIEW view_crop_profit AS
 SELECT
     c.Crop_id,
@@ -205,13 +261,13 @@ SELECT
     l.land_name,
     u.name AS owner_name,
     COALESCE(c.cost, 0) AS seed_cost, -- initial seed/planting cost
-    COALESCE(SUM(f.quantity * f.price_per_unit), 0) AS total_fertilizer_cost,
+    COALESCE(SUM(p.quantity * f.price_per_unit), 0) AS total_fertilizer_cost,
     COALESCE(SUM(h.quantity_harvest), 0) AS total_yield_kg,
     COALESCE(SUM(h.total_price), 0) AS total_revenue,
-    (COALESCE(SUM(h.total_price), 0) - (COALESCE(c.cost, 0) + COALESCE(SUM(f.quantity * f.price_per_unit), 0))) AS net_profit_loss
+    (COALESCE(SUM(h.total_price), 0) - (COALESCE(c.cost, 0) + COALESCE(SUM(p.quantity * f.price_per_unit), 0))) AS net_profit_loss
 FROM Crop c
 JOIN Land l ON c.Land_id = l.Land_id
-JOIN "user" u ON l.User_id = u.User_id
+JOIN user_main u ON l.User_id = u.User_id
 LEFT JOIN Planting p ON c.Crop_id = p.Crop_id
 LEFT JOIN Fertilizer f ON p.Fertilizer_id = f.Fertilizer_id
 LEFT JOIN Harvest h ON c.Crop_id = h.Crop_id
@@ -222,6 +278,7 @@ CREATE OR REPLACE FUNCTION get_user_profile_analytics(p_user_id INTEGER)
 RETURNS TABLE (
     user_name VARCHAR,
     user_email VARCHAR,
+    user_phone VARCHAR,
     is_supervisor BOOLEAN,
     total_lands BIGINT,
     total_area_rai NUMERIC,
@@ -233,9 +290,11 @@ BEGIN
     SELECT
         u.name,
         u.email,
+        u.phone_number,
         CASE WHEN s.user_id IS NOT NULL THEN TRUE ELSE FALSE END INTO
         user_name,
         user_email,
+        user_phone,
         is_supervisor
     FROM user_main u
     LEFT JOIN supervisor s ON u.user_id = s.user_id
@@ -269,5 +328,77 @@ BEGIN
     WHERE l.User_id = p_user_id;
 
     RETURN NEXT;
+END;
+$$ LANGUAGE plpgsql;
+
+-- revenue by land 
+CREATE OR REPLACE FUNCTION get_land_profit(p_user_id INT)
+RETURNS TABLE (
+    land_id INT,
+    land_name VARCHAR,
+    total_seed_cost DECIMAL,
+    total_fertilizer_cost DECIMAL,
+    total_yield_kg DECIMAL,
+    total_revenue DECIMAL,
+    average_price_per_kg DECIMAL, 
+    net_profit_loss DECIMAL
+)
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        l.Land_id,
+        l.land_name,
+        COALESCE(SUM(c.cost), 0) AS total_seed_cost,
+        COALESCE(SUM(p.quantity * f.price_per_unit), 0) AS total_fertilizer_cost,
+        COALESCE(SUM(h.quantity_harvest), 0) AS total_yield_kg,
+        COALESCE(SUM(h.total_price), 0) AS total_revenue,
+        CASE
+            WHEN COALESCE(SUM(h.quantity_harvest), 0) > 0 
+            THEN COALESCE(SUM(h.total_price), 0) / COALESCE(SUM(h.quantity_harvest), 0)
+            ELSE 0 
+        END AS average_price_per_kg,
+        (COALESCE(SUM(h.total_price), 0) - (COALESCE(SUM(c.cost), 0) + COALESCE(SUM(p.quantity * f.price_per_unit), 0))) AS net_profit_loss
+    FROM Land l
+    JOIN user_main u ON l.User_id = u.User_id
+    JOIN Crop c ON l.Land_id = c.Land_id
+    
+    LEFT JOIN Planting p ON c.Crop_id = p.Crop_id
+    LEFT JOIN Fertilizer f ON p.Fertilizer_id = f.Fertilizer_id
+    LEFT JOIN Harvest h ON c.Crop_id = h.Crop_id
+    
+    WHERE u.User_id = p_user_id 
+    
+    GROUP BY
+        l.Land_id,
+        l.land_name;
+END;
+$$ LANGUAGE plpgsql;
+
+-- fertilizer
+CREATE OR REPLACE FUNCTION get_land_fertilizer(p_land_id INT)
+RETURNS TABLE (
+    application_date DATE,
+    fertilizer_type VARCHAR,
+    quantity_applied DECIMAL,
+    unit_cost DECIMAL,
+    total_cost DECIMAL
+)
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        p.application_date AS application_date,
+        f.fertilizer_name AS fertilizer_type, 
+        p.quantity AS quantity_applied,
+        f.price_per_unit AS unit_cost,
+        (p.quantity * f.price_per_unit) AS total_cost
+    FROM Land l
+    JOIN Crop c ON l.Land_id = c.Land_id
+    JOIN Planting p ON c.Crop_id = p.Crop_id
+    JOIN Fertilizer f ON p.Fertilizer_id = f.Fertilizer_id
+    
+    WHERE l.Land_id = p_land_id
+    ORDER BY p.application_date;
 END;
 $$ LANGUAGE plpgsql;

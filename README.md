@@ -1,4 +1,4 @@
-# 🌾 Project: Agricultural Land Record & Remote Supervision System
+# 🌾 Agricultural Land Record & Remote Supervision System
 
 This project presents a relational database design aimed at improving how landowners and farmers manage information about their agricultural assets.  
 It focuses on preserving land knowledge across generations and replacing unreliable paper-based or memory-based management methods with a structured digital system.

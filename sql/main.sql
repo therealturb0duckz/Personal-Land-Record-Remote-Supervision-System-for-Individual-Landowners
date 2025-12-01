@@ -25,8 +25,8 @@ CREATE TABLE User (
 
 CREATE TABLE Land (
     Land_id SERIAL PRIMARY KEY,
-    User_id INTEGER REFERENCES User(User_id), 
-    Soil_id INTEGER REFERENCES Soil(Soil_id), 
+    User_id INTEGER REFERENCES User(User_id) NOT NULL, 
+    Soil_id INTEGER REFERENCES Soil(Soil_id) NOT NULL, 
     land_type VARCHAR(50),
     land_name VARCHAR(100) NOT NULL,
     gps_coordinates VARCHAR(50),
@@ -36,8 +36,8 @@ CREATE TABLE Land (
 
 CREATE TABLE Supervisor (
     Supervisor_id SERIAL PRIMARY KEY,
-    User_id INTEGER REFERENCES User(User_id) UNIQUE, 
-    Land_id INTEGER REFERENCES Land(Land_id), 
+    User_id INTEGER REFERENCES User(User_id) UNIQUE NOT NULL, 
+    Land_id INTEGER REFERENCES Land(Land_id) NOT NULL, 
     assigned_date DATE NOT NULL,
     end_date DATE
 );
@@ -45,7 +45,7 @@ CREATE TABLE Supervisor (
 
 CREATE TABLE Crop (
     Crop_id SERIAL PRIMARY KEY,
-    Land_id INTEGER REFERENCES Land(Land_id), 
+    Land_id INTEGER REFERENCES Land(Land_id) NOT NULL, 
     crop_name VARCHAR(100) NOT NULL,
     variety VARCHAR(100),
     planting_date DATE,
@@ -66,9 +66,9 @@ CREATE TABLE Planting (
 
 CREATE TABLE Harvest (
     Harvest_id SERIAL PRIMARY KEY,
-    Crop_id INTEGER REFERENCES Crop(Crop_id), 
-    Land_id INTEGER REFERENCES Land(Land_id), 
-    harvest_date DATE NOT NULL,
+    Crop_id INTEGER REFERENCES Crop(Crop_id) NOT NULL, 
+    Land_id INTEGER REFERENCES Land(Land_id) NOT NULL, 
+    harvest_date DATE NOT NULL CHECK (harvest_date <= CURRENT_DATE),
     quantity_harvest NUMERIC(10, 2),
     total_price NUMERIC(10, 2)
 );
@@ -94,7 +94,7 @@ INTO User_main (name, date_of_birth, phone_number, email, address) VALUES
 ('Kittisak Chuen', '1977-06-17', '097-2357-117', 'kittisak.c@mail.com', '12 Moo 7, T. Don Yang, Phatthalung'),
 ('Waranya Faifaa', '1984-08-08', '082-8764-118', 'waranya.f@mail.com', '89 Chaengwattana Rd, Nonthaburi'),
 ('Pongpat Phum', '1963-02-14', '090-9453-119', 'pongpat.p@mail.com', '45 Banthat Thong Rd, Bangkok'),
-('Natthida Somsri', '1996-10-31', '064-2357-120', 'natthida.s@mail.com', '11/1 T. Nong Nae, Saraburi');
+('Natthida Somsri', '1996-10-31', '064-2357-120', 'natthida.s@mail.com', '11/1 T. Nong Nae, Saraburi');('Somjai Jairak', '1975-09-15', '081-234-5678', 'somjai.j@mail.com', '15/5 Moo 4, Sadao, Songkhla')
 
 INSERT INTO Soil (soil_name, description) VALUES
 ('Clay Loam (เหนียวปนทราย)', 'Highly fertile, medium drainage, common in Central Plains.'),

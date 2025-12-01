@@ -159,6 +159,30 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- harvest integrity check 
+CREATE OR REPLACE FUNCTION check_harvest_date_integrity()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_planting_date DATE;
+BEGIN
+    SELECT planting_date INTO v_planting_date
+    FROM Crop
+    WHERE Crop_id = NEW.Crop_id;
+
+    IF NEW.harvest_date < v_planting_date THEN
+        RAISE EXCEPTION 'Data Integrity Violation: Harvest date (%) must be on or after planting date (%) for Crop ID %.', 
+                       NEW.harvest_date, v_planting_date, NEW.Crop_id;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE TRIGGER harvest_date_check
+BEFORE INSERT OR UPDATE ON Harvest
+FOR EACH ROW
+EXECUTE FUNCTION check_harvest_date_integrity();
+
 -- yearly revenue
 CREATE OR REPLACE FUNCTION get_user_revenue_by_year(
     p_user_id INTEGER,

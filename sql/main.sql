@@ -16,7 +16,7 @@ CREATE TABLE Soil (
 CREATE TABLE User (
     User_id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    date_of_birth DATE,
+    date_of_birth DATE CHECK (date_of_birth<= CURRENT_DATE),
     phone_number VARCHAR(20),
     email VARCHAR(100) UNIQUE,
     address VARCHAR(255)
@@ -39,7 +39,10 @@ CREATE TABLE Supervisor (
     User_id INTEGER REFERENCES User(User_id) UNIQUE NOT NULL, 
     Land_id INTEGER REFERENCES Land(Land_id) NOT NULL, 
     assigned_date DATE NOT NULL,
-    end_date DATE
+    end_date DATE,
+    CHECK (
+        end_date IS NULL OR assigned_date < end_date
+    )
 );
 
 
